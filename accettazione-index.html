@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>C.A.T.E.T — Accettazione Cavi UL</title>
+<style>
+:root{
+  --blu:#013889;--giallo:#FFC900;--verde:#36C09A;
+  --scuro:#2E3A44;--chiaro:#EFF3F6;--bianco:#FFFFFF;
+  --rosso:#E74C3C;--grigio:#8899A6;
+  --raggio:12px;--ombra:0 2px 12px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:var(--chiaro);color:var(--scuro);min-height:100vh;padding-bottom:100px}
+.header{background:var(--blu);color:var(--bianco);padding:16px;text-align:center;
+  position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.header h1{font-size:18px;letter-spacing:1px;margin-bottom:2px}
+.header small{font-size:11px;opacity:.8;letter-spacing:.5px}
+.nav{display:flex;background:var(--bianco);border-bottom:1px solid #ddd;
+  position:sticky;top:56px;z-index:99;box-shadow:var(--ombra)}
+.nav button{flex:1;padding:12px 8px;border:none;background:none;font-size:13px;
+  font-weight:600;color:var(--grigio);cursor:pointer;border-bottom:3px solid transparent;
+  transition:all .2s}
+.nav button.active{color:var(--blu);border-bottom-color:var(--blu)}
+.page{display:none;padding:16px;max-width:600px;margin:0 auto}
+.page.active{display:block}
+.card{background:var(--bianco);border-radius:var(--raggio);padding:16px;
+  margin-bottom:16px;box-shadow:var(--ombra)}
+.card h3{font-size:15px;color:var(--blu);margin-bottom:12px;
+  display:flex;align-items:center;gap:8px}
+label{display:block;font-size:13px;font-weight:600;color:var(--scuro);margin-bottom:4px}
+.note{font-size:11px;color:var(--grigio);margin-bottom:8px;font-style:italic}
+input[type=text],input[type=date],input[type=number],select,textarea{
+  width:100%;padding:12px;border:2px solid #dde;border-radius:8px;font-size:15px;
+  margin-bottom:12px;-webkit-appearance:none;appearance:none;background:var(--bianco)}
+input:focus,select:focus,textarea:focus{border-color:var(--blu);outline:none}
+textarea{resize:vertical;min-height:60px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:14px 20px;border:none;border-radius:8px;font-size:15px;font-weight:600;
+  cursor:pointer;width:100%;transition:all .2s;margin-bottom:8px}
+.btn-blu{background:var(--blu);color:var(--bianco)}
+.btn-verde{background:var(--verde);color:var(--bianco)}
+.btn-giallo{background:var(--giallo);color:var(--scuro)}
+.btn-rosso{background:var(--rosso);color:var(--bianco)}
+.btn-outline{background:none;border:2px solid var(--blu);color:var(--blu)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-sm{padding:10px 14px;font-size:13px;width:auto}
+
+/* Foto grid */
+.foto-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin:8px 0}
+.foto-thumb{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;
+  border:2px solid #dde;cursor:pointer}
+.foto-thumb img{width:100%;height:100%;object-fit:cover}
+.foto-thumb .del{position:absolute;top:4px;right:4px;width:24px;height:24px;
+  background:var(--rosso);color:#fff;border:none;border-radius:50%;font-size:14px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.foto-add{aspect-ratio:1;border:2px dashed var(--blu);border-radius:8px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--blu);font-size:12px;font-weight:600;gap:4px;
+  min-height:100px}
+.foto-add span{font-size:32px;line-height:1}
+
+/* Storico */
+.item{background:var(--bianco);border-radius:var(--raggio);padding:14px;
+  margin-bottom:10px;box-shadow:var(--ombra);border-left:4px solid var(--verde)}
+.item .meta{font-size:12px;color:var(--grigio);margin-bottom:4px}
+.item .titolo{font-weight:700;font-size:14px}
+.item .dettagli{font-size:13px;color:#555;margin-top:4px}
+.item .foto-count{font-size:12px;color:var(--blu);margin-top:4px}
+
+/* Badge */
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700}
+.badge-ok{background:#d4edda;color:#155724}
+.badge-queue{background:#fff3cd;color:#856404}
+.badge-err{background:#f8d7da;color:#721c24}
+
+/* Modal */
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.show{display:flex}
+.modal{background:var(--bianco);border-radius:var(--raggio);padding:20px;
+  max-width:500px;width:100%;max-height:90vh;overflow-y:auto}
+.modal h3{margin-bottom:12px}
+
+/* Toast */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+  padding:12px 24px;border-radius:8px;color:#fff;font-size:14px;font-weight:600;
+  z-index:300;opacity:0;transition:opacity .3s;pointer-events:none;text-align:center;max-width:90%}
+.toast.show{opacity:1}
+.toast-ok{background:var(--verde)}
+.toast-err{background:var(--rosso)}
+
+/* Fornitore datalist */
+.fornitore-wrap{position:relative}
+.fornitore-list{position:absolute;top:100%;left:0;right:0;background:var(--bianco);
+  border:1px solid #dde;border-radius:0 0 8px 8px;max-height:150px;overflow-y:auto;
+  z-index:50;display:none;box-shadow:var(--ombra)}
+.fornitore-list.show{display:block}
+.fornitore-list div{padding:10px 12px;cursor:pointer;font-size:14px}
+.fornitore-list div:hover{background:var(--chiaro)}
+
+/* Status bar */
+.status-bar{position:fixed;bottom:0;left:0;right:0;background:var(--bianco);
+  border-top:1px solid #dde;padding:8px 16px;display:flex;align-items:center;
+  justify-content:space-between;font-size:12px;color:var(--grigio);z-index:100}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
+.status-dot.online{background:var(--verde)}
+.status-dot.offline{background:var(--rosso)}
+
+/* Fullscreen photo viewer */
+.photo-viewer{display:none;position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,.9);z-index:250;align-items:center;justify-content:center}
+.photo-viewer.show{display:flex}
+.photo-viewer img{max-width:95%;max-height:90vh;object-fit:contain;border-radius:8px}
+.photo-viewer .close{position:absolute;top:16px;right:16px;width:40px;height:40px;
+  background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:50%;
+  font-size:24px;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>C.A.T.E.T</h1>
+  <small>Accettazione Cavi UL</small>
+</div>
+
+<div class="nav">
+  <button class="active" onclick="showPage('registra')">&#128220; Registra</button>
+  <button onclick="showPage('storico')">&#128203; Storico</button>
+  <button onclick="showPage('impostazioni')">&#9881; Impost.</button>
+</div>
+
+<!-- ==================== REGISTRA ==================== -->
+<div id="pg-registra" class="page active">
+
+  <div class="card">
+    <h3>&#128203; Dati Documento</h3>
+    <label for="docen-num">Numero DOC_EN</label>
+    <input type="text" id="docen-num" placeholder="es. CAV-AC-CH010NE5455-E26" autocomplete="off">
+
+    <label for="docen-data">Data DOC_EN</label>
+    <input type="date" id="docen-data">
+
+    <label for="fornitore">Fornitore</label>
+    <div class="fornitore-wrap">
+      <input type="text" id="fornitore" placeholder="Nome fornitore" autocomplete="off"
+        oninput="filterFornitori()" onfocus="filterFornitori()">
+      <div id="fornitore-list" class="fornitore-list"></div>
+    </div>
+    <p class="note">I fornitori usati in precedenza appaiono come suggerimenti</p>
+
+    <label for="operatore">Operatore</label>
+    <input type="text" id="operatore" placeholder="Nome operatore">
+
+    <label for="note-gen">Note generali (opzionale)</label>
+    <textarea id="note-gen" placeholder="Eventuali note sulla consegna..."></textarea>
+  </div>
+
+  <div class="card">
+    <h3>&#128247; Foto Etichette Imballi</h3>
+    <p class="note">Scatta foto alle etichette intere sugli imballi. Puoi aggiungerne quante ne servono.</p>
+    <div id="foto-container" class="foto-grid">
+      <div class="foto-add" onclick="scattaFoto()">
+        <span>+</span>
+        Aggiungi foto
+      </div>
+    </div>
+    <input type="file" id="foto-input" accept="image/*" capture="environment" style="display:none"
+      onchange="handleFoto(this)">
+  </div>
+
+  <button class="btn btn-verde" onclick="salva()" id="btn-salva">
+    &#9989; Salva Registrazione
+  </button>
+  <button class="btn btn-outline" onclick="pulisci()">
+    &#128260; Pulisci Campi
+  </button>
+</div>
+
+<!-- ==================== STORICO ==================== -->
+<div id="pg-storico" class="page">
+  <div class="card">
+    <h3>&#128270; Cerca</h3>
+    <input type="text" id="cerca" placeholder="Cerca per DOC_EN, fornitore, data..."
+      oninput="renderStorico()">
+  </div>
+  <div id="storico-list"></div>
+  <p id="storico-vuoto" style="text-align:center;color:var(--grigio);padding:20px;display:none">
+    Nessuna registrazione trovata
+  </p>
+</div>
+
+<!-- ==================== IMPOSTAZIONI ==================== -->
+<div id="pg-impostazioni" class="page">
+  <div class="card">
+    <h3>&#128279; Connessione Google</h3>
+    <label for="script-url">URL Apps Script</label>
+    <input type="text" id="script-url" placeholder="https://script.google.com/macros/s/.../exec">
+    <p class="note">Incolla l'URL della webapp di Google Apps Script</p>
+    <button class="btn btn-blu btn-sm" onclick="salvaUrl()">Salva URL</button>
+    <button class="btn btn-outline btn-sm" onclick="testaConnessione()" style="margin-top:4px">
+      Testa connessione
+    </button>
+    <div id="conn-result" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card">
+    <h3>&#128100; Operatore predefinito</h3>
+    <label for="op-default">Nome</label>
+    <input type="text" id="op-default" placeholder="Il tuo nome">
+    <button class="btn btn-blu btn-sm" onclick="salvaOperatore()">Salva</button>
+  </div>
+
+  <div class="card">
+    <h3>&#128230; Dati locali</h3>
+    <p style="font-size:13px;margin-bottom:8px">
+      <span id="count-local">0</span> registrazioni salvate localmente
+    </p>
+    <p style="font-size:13px;margin-bottom:8px">
+      <span id="count-queue">0</span> in coda di invio
+    </p>
+    <button class="btn btn-giallo btn-sm" onclick="esportaCSV()">&#128190; Esporta CSV</button>
+    <button class="btn btn-outline btn-sm" onclick="sincronizza()" style="margin-top:4px">
+      &#128259; Sincronizza coda
+    </button>
+    <button class="btn btn-rosso btn-sm" onclick="confirmClear()" style="margin-top:4px">
+      &#128465; Cancella dati locali
+    </button>
+  </div>
+
+  <div class="card">
+    <h3>&#128736; Gestione Fornitori</h3>
+    <div id="fornitori-salvati" style="margin-bottom:8px"></div>
+    <button class="btn btn-outline btn-sm" onclick="mostraAddFornitore()">+ Aggiungi fornitore manualmente</button>
+  </div>
+</div>
+
+<!-- Status bar -->
+<div class="status-bar">
+  <div><span class="status-dot" id="status-dot"></span> <span id="status-text">—</span></div>
+  <div id="queue-badge"></div>
+</div>
+
+<!-- Photo viewer -->
+<div class="photo-viewer" id="photo-viewer" onclick="chiudiViewer()">
+  <button class="close" onclick="chiudiViewer()">&times;</button>
+  <img id="viewer-img" src="">
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Modal conferma cancellazione -->
+<div class="modal-overlay" id="modal-clear">
+  <div class="modal">
+    <h3>&#9888;&#65039; Cancellare tutti i dati?</h3>
+    <p style="margin-bottom:16px;font-size:14px">Questa operazione elimina tutte le registrazioni salvate localmente. I dati già inviati a Google restano al sicuro.</p>
+    <button class="btn btn-rosso" onclick="clearData()">Sì, cancella tutto</button>
+    <button class="btn btn-outline" onclick="closeModal('modal-clear')">Annulla</button>
+  </div>
+</div>
+
+<!-- Modal dettaglio registrazione -->
+<div class="modal-overlay" id="modal-dettaglio">
+  <div class="modal" id="modal-dettaglio-content"></div>
+</div>
+
+<script>
+// ============================================================
+//  C.A.T.E.T — Accettazione Cavi UL — Frontend
+// ============================================================
+
+const LS_KEY = 'catet_accettazione';
+const LS_QUEUE = 'catet_acc_queue';
+const LS_URL = 'catet_acc_script_url';
+const LS_OP = 'catet_acc_operatore';
+const LS_FORNITORI = 'catet_acc_fornitori';
+
+let fotoTemp = []; // array di dataURL per la registrazione corrente
+
+// ---- Init ----
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('operatore').value = lsGet(LS_OP, '');
+  document.getElementById('script-url').value = lsGet(LS_URL, '');
+  document.getElementById('op-default').value = lsGet(LS_OP, '');
+  document.getElementById('docen-data').value = oggi();
+  aggiornaStatus();
+  aggiornaCounts();
+  autoSync();
+  // Click fuori lista fornitori la chiude
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.fornitore-wrap')) {
+      document.getElementById('fornitore-list').classList.remove('show');
+    }
+  });
+});
+
+// ---- Utility localStorage ----
+function lsGet(k, def) { try { return localStorage.getItem(k) || def; } catch(e) { return def; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch(e) {} }
+function lsGetJSON(k, def) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch(e) { return def; } }
+function lsSetJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
+
+function oggi() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function oraCorrente() {
+  const d = new Date();
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+function formatDate(ds) {
+  if (!ds) return '';
+  const p = ds.split('-');
+  if (p.length === 3) return p[2]+'/'+p[1]+'/'+p[0];
+  return ds;
+}
+
+// ---- Navigazione ----
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('pg-'+id).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (id === 'storico') renderStorico();
+  if (id === 'impostazioni') { aggiornaCounts(); renderFornitori(); }
+}
+
+// ---- Fornitori (memoria) ----
+function getFornitori() { return lsGetJSON(LS_FORNITORI, []); }
+function addFornitore(nome) {
+  if (!nome) return;
+  nome = nome.trim();
+  let lista = getFornitori();
+  // Case-insensitive dedup
+  if (!lista.find(f => f.toLowerCase() === nome.toLowerCase())) {
+    lista.push(nome);
+    lista.sort((a,b) => a.localeCompare(b, 'it'));
+    lsSetJSON(LS_FORNITORI, lista);
+  }
+}
+function removeFornitore(nome) {
+  let lista = getFornitori().filter(f => f !== nome);
+  lsSetJSON(LS_FORNITORI, lista);
+  renderFornitori();
+}
+
+function filterFornitori() {
+  const input = document.getElementById('fornitore');
+  const list = document.getElementById('fornitore-list');
+  const val = input.value.toLowerCase();
+  const fornitori = getFornitori();
+  const filtered = val ? fornitori.filter(f => f.toLowerCase().includes(val)) : fornitori;
+  if (filtered.length === 0) { list.classList.remove('show'); return; }
+  list.innerHTML = filtered.map(f =>
+    '<div onclick="selezionaFornitore(\''+f.replace(/'/g, "\\'")+'\')">' + f + '</div>'
+  ).join('');
+  list.classList.add('show');
+}
+function selezionaFornitore(nome) {
+  document.getElementById('fornitore').value = nome;
+  document.getElementById('fornitore-list').classList.remove('show');
+}
+function renderFornitori() {
+  const container = document.getElementById('fornitori-salvati');
+  const lista = getFornitori();
+  if (lista.length === 0) {
+    container.innerHTML = '<p style="font-size:13px;color:var(--grigio)">Nessun fornitore salvato</p>';
+    return;
+  }
+  container.innerHTML = lista.map(f =>
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee">' +
+      '<span style="font-size:14px">' + f + '</span>' +
+      '<button class="btn btn-rosso btn-sm" style="width:auto;padding:4px 10px;font-size:11px;margin:0" ' +
+        'onclick="removeFornitore(\''+f.replace(/'/g, "\\'")+'\')">&times;</button>' +
+    '</div>'
+  ).join('');
+}
+function mostraAddFornitore() {
+  const nome = prompt('Nome fornitore:');
+  if (nome && nome.trim()) {
+    addFornitore(nome.trim());
+    renderFornitori();
+    toast('Fornitore aggiunto', 'ok');
+  }
+}
+
+// ---- Foto ----
+function scattaFoto() {
+  document.getElementById('foto-input').click();
+}
+function handleFoto(input) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    // Comprimi
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      // Max 800px lato lungo, qualità 50%
+      const maxW = 800;
+      const sc = Math.min(1, maxW / img.width);
+      canvas.width = img.width * sc;
+      canvas.height = img.height * sc;
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      const compressed = canvas.toDataURL('image/jpeg', 0.5);
+      fotoTemp.push(compressed);
+      renderFotoGrid();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value = ''; // reset per permettere stessa foto
+}
+function renderFotoGrid() {
+  const container = document.getElementById('foto-container');
+  let html = '';
+  fotoTemp.forEach((f, i) => {
+    html += '<div class="foto-thumb" onclick="apriViewer('+i+')">' +
+      '<img src="'+f+'">' +
+      '<button class="del" onclick="event.stopPropagation();rimuoviFoto('+i+')">&times;</button>' +
+    '</div>';
+  });
+  html += '<div class="foto-add" onclick="scattaFoto()"><span>+</span>Aggiungi foto</div>';
+  container.innerHTML = html;
+}
+function rimuoviFoto(i) {
+  fotoTemp.splice(i, 1);
+  renderFotoGrid();
+}
+function apriViewer(i) {
+  document.getElementById('viewer-img').src = fotoTemp[i];
+  document.getElementById('photo-viewer').classList.add('show');
+}
+function apriViewerSrc(src) {
+  document.getElementById('viewer-img').src = src;
+  document.getElementById('photo-viewer').classList.add('show');
+}
+function chiudiViewer() {
+  document.getElementById('photo-viewer').classList.remove('show');
+}
+
+// ---- Salva registrazione ----
+function salva() {
+  const docNum = document.getElementById('docen-num').value.trim();
+  const docData = document.getElementById('docen-data').value;
+  const fornitore = document.getElementById('fornitore').value.trim();
+  const operatore = document.getElementById('operatore').value.trim();
+  const note = document.getElementById('note-gen').value.trim();
+
+  if (!docNum) { toast('Inserisci il numero DOC_EN', 'err'); return; }
+  if (!docData) { toast('Inserisci la data DOC_EN', 'err'); return; }
+  if (!fornitore) { toast('Inserisci il fornitore', 'err'); return; }
+  if (fotoTemp.length === 0) { toast('Scatta almeno una foto etichetta', 'err'); return; }
+
+  const record = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    timestamp: new Date().toISOString(),
+    data: docData,
+    ora: oraCorrente(),
+    docEN: docNum,
+    dataDocEN: docData,
+    fornitore: fornitore,
+    operatore: operatore,
+    note: note,
+    foto: fotoTemp.slice(), // copia
+    nFoto: fotoTemp.length,
+    synced: false
+  };
+
+  // Salva locale
+  let records = lsGetJSON(LS_KEY, []);
+  records.unshift(record);
+  lsSetJSON(LS_KEY, records);
+
+  // Aggiungi a coda invio
+  let queue = lsGetJSON(LS_QUEUE, []);
+  queue.push(record);
+  lsSetJSON(LS_QUEUE, queue);
+
+  // Salva fornitore nella memoria
+  addFornitore(fornitore);
+
+  // Salva operatore
+  if (operatore) {
+    lsSet(LS_OP, operatore);
+  }
+
+  toast('Registrazione salvata! (' + fotoTemp.length + ' foto)', 'ok');
+
+  // Pulisci form (mantieni operatore e data)
+  document.getElementById('docen-num').value = '';
+  document.getElementById('fornitore').value = '';
+  document.getElementById('note-gen').value = '';
+  fotoTemp = [];
+  renderFotoGrid();
+  aggiornaCounts();
+
+  // Tenta invio
+  inviaRecord(record);
+}
+
+// ---- Invio a Google ----
+async function inviaRecord(record) {
+  const url = lsGet(LS_URL, '');
+  if (!url) return;
+
+  try {
+    const payload = {
+      azione: 'registra',
+      data: record.dataDocEN,
+      ora: record.ora,
+      operatore: record.operatore,
+      docEN: record.docEN,
+      dataDocEN: record.dataDocEN,
+      fornitore: record.fornitore,
+      note: record.note,
+      foto: record.foto,
+      nFoto: record.nFoto
+    };
+
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    const result = await resp.json();
+
+    if (result.status === 'ok') {
+      // Rimuovi dalla coda
+      let queue = lsGetJSON(LS_QUEUE, []);
+      queue = queue.filter(q => q.id !== record.id);
+      lsSetJSON(LS_QUEUE, queue);
+      // Segna come sincronizzato
+      let records = lsGetJSON(LS_KEY, []);
+      const idx = records.findIndex(r => r.id === record.id);
+      if (idx >= 0) { records[idx].synced = true; lsSetJSON(LS_KEY, records); }
+      aggiornaCounts();
+      aggiornaStatus();
+    }
+  } catch(e) {
+    console.warn('Invio fallito, resta in coda:', e);
+    aggiornaStatus();
+  }
+}
+
+async function sincronizza() {
+  const queue = lsGetJSON(LS_QUEUE, []);
+  if (queue.length === 0) { toast('Nessun invio in coda', 'ok'); return; }
+  toast('Sincronizzazione in corso...', 'ok');
+  for (const record of queue) {
+    await inviaRecord(record);
+  }
+  const remaining = lsGetJSON(LS_QUEUE, []);
+  if (remaining.length === 0) {
+    toast('Tutto sincronizzato!', 'ok');
+  } else {
+    toast(remaining.length + ' ancora in coda', 'err');
+  }
+}
+
+function autoSync() {
+  setInterval(() => {
+    const queue = lsGetJSON(LS_QUEUE, []);
+    if (queue.length > 0 && lsGet(LS_URL, '')) {
+      sincronizza();
+    }
+  }, 60000); // ogni 60 secondi
+}
+
+// ---- Storico ----
+function renderStorico() {
+  const records = lsGetJSON(LS_KEY, []);
+  const cerca = (document.getElementById('cerca')?.value || '').toLowerCase();
+  const filtered = records.filter(r => {
+    if (!cerca) return true;
+    return (r.docEN||'').toLowerCase().includes(cerca) ||
+           (r.fornitore||'').toLowerCase().includes(cerca) ||
+           (r.dataDocEN||'').includes(cerca) ||
+           (r.operatore||'').toLowerCase().includes(cerca) ||
+           (r.note||'').toLowerCase().includes(cerca);
+  });
+
+  const container = document.getElementById('storico-list');
+  const vuoto = document.getElementById('storico-vuoto');
+
+  if (filtered.length === 0) {
+    container.innerHTML = '';
+    vuoto.style.display = 'block';
+    return;
+  }
+  vuoto.style.display = 'none';
+
+  container.innerHTML = filtered.map(r => {
+    const badge = r.synced ?
+      '<span class="badge badge-ok">Inviato</span>' :
+      '<span class="badge badge-queue">In coda</span>';
+    return '<div class="item" onclick="mostraDettaglio(\''+r.id+'\')">' +
+      '<div class="meta">' + formatDate(r.dataDocEN) + ' ' + (r.ora||'') + ' — ' + badge + '</div>' +
+      '<div class="titolo">DOC_EN: ' + (r.docEN||'') + '</div>' +
+      '<div class="dettagli">Fornitore: ' + (r.fornitore||'') +
+        (r.operatore ? ' — Op: ' + r.operatore : '') + '</div>' +
+      '<div class="foto-count">&#128247; ' + (r.nFoto||0) + ' foto</div>' +
+    '</div>';
+  }).join('');
+}
+
+function mostraDettaglio(id) {
+  const records = lsGetJSON(LS_KEY, []);
+  const r = records.find(x => x.id === id);
+  if (!r) return;
+
+  const badge = r.synced ?
+    '<span class="badge badge-ok">Inviato a Google</span>' :
+    '<span class="badge badge-queue">In coda locale</span>';
+
+  let html = '<h3>Dettaglio Registrazione</h3>' +
+    '<p style="margin-bottom:4px">' + badge + '</p>' +
+    '<table style="width:100%;font-size:13px;margin:12px 0">';
+
+  const campi = [
+    ['DOC_EN', r.docEN],
+    ['Data DOC_EN', formatDate(r.dataDocEN)],
+    ['Fornitore', r.fornitore],
+    ['Operatore', r.operatore || '—'],
+    ['Data/Ora registrazione', formatDate(r.data) + ' ' + (r.ora||'')],
+    ['Note', r.note || '—']
+  ];
+  campi.forEach(([k,v]) => {
+    html += '<tr><td style="padding:4px 8px 4px 0;font-weight:600;vertical-align:top;white-space:nowrap">' +
+      k + '</td><td style="padding:4px 0">' + v + '</td></tr>';
+  });
+  html += '</table>';
+
+  if (r.foto && r.foto.length > 0) {
+    html += '<p style="font-weight:600;font-size:13px;margin-bottom:8px">Foto etichette (' + r.foto.length + '):</p>';
+    html += '<div class="foto-grid">';
+    r.foto.forEach(f => {
+      html += '<div class="foto-thumb" onclick="apriViewerSrc(\''+f+'\')">' +
+        '<img src="'+f+'"></div>';
+    });
+    html += '</div>';
+  }
+
+  html += '<button class="btn btn-outline" onclick="closeModal(\'modal-dettaglio\')" style="margin-top:16px">Chiudi</button>';
+
+  document.getElementById('modal-dettaglio-content').innerHTML = html;
+  document.getElementById('modal-dettaglio').classList.add('show');
+}
+
+// ---- Export CSV ----
+function esportaCSV() {
+  const records = lsGetJSON(LS_KEY, []);
+  if (records.length === 0) { toast('Nessun dato da esportare', 'err'); return; }
+
+  const header = ['Data_DOC_EN','Ora_Registrazione','Operatore','DOC_EN','Fornitore','N_Foto','Note','Stato'];
+  let csv = '\uFEFF' + header.join(';') + '\n'; // BOM per Excel italiano
+
+  records.forEach(r => {
+    const row = [
+      formatDate(r.dataDocEN),
+      r.ora || '',
+      r.operatore || '',
+      r.docEN || '',
+      r.fornitore || '',
+      r.nFoto || 0,
+      (r.note || '').replace(/[\n\r;]/g, ' '),
+      r.synced ? 'Inviato' : 'In coda'
+    ];
+    csv += row.join(';') + '\n';
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'CATET_Accettazione_' + oggi() + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('CSV esportato', 'ok');
+}
+
+// ---- Impostazioni ----
+function salvaUrl() {
+  const url = document.getElementById('script-url').value.trim();
+  lsSet(LS_URL, url);
+  toast('URL salvato', 'ok');
+  aggiornaStatus();
+}
+function salvaOperatore() {
+  const op = document.getElementById('op-default').value.trim();
+  lsSet(LS_OP, op);
+  document.getElementById('operatore').value = op;
+  toast('Operatore salvato', 'ok');
+}
+async function testaConnessione() {
+  const url = lsGet(LS_URL, '');
+  const res = document.getElementById('conn-result');
+  if (!url) { res.innerHTML = '<span style="color:var(--rosso)">&#10060; Nessun URL configurato</span>'; return; }
+  res.innerHTML = '<span style="color:var(--grigio)">Test in corso...</span>';
+  try {
+    const resp = await fetch(url + '?test=1');
+    const data = await resp.json();
+    if (data.status === 'ok') {
+      res.innerHTML = '<span style="color:var(--verde)">&#9989; Connessione riuscita!</span>';
+    } else {
+      res.innerHTML = '<span style="color:var(--rosso)">&#10060; Risposta inattesa</span>';
+    }
+  } catch(e) {
+    res.innerHTML = '<span style="color:var(--rosso)">&#10060; Errore: ' + e.message + '</span>';
+  }
+}
+
+// ---- Conferma cancellazione ----
+function confirmClear() {
+  document.getElementById('modal-clear').classList.add('show');
+}
+function clearData() {
+  lsSetJSON(LS_KEY, []);
+  lsSetJSON(LS_QUEUE, []);
+  closeModal('modal-clear');
+  aggiornaCounts();
+  toast('Dati locali cancellati', 'ok');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+// ---- Status ----
+function aggiornaStatus() {
+  const url = lsGet(LS_URL, '');
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  if (url) {
+    dot.className = 'status-dot online';
+    txt.textContent = 'Google collegato';
+  } else {
+    dot.className = 'status-dot offline';
+    txt.textContent = 'Configura Google nelle impostazioni';
+  }
+  const queue = lsGetJSON(LS_QUEUE, []);
+  const badge = document.getElementById('queue-badge');
+  if (queue.length > 0) {
+    badge.innerHTML = '<span class="badge badge-queue">' + queue.length + ' in coda</span>';
+  } else {
+    badge.innerHTML = '';
+  }
+}
+function aggiornaCounts() {
+  const records = lsGetJSON(LS_KEY, []);
+  const queue = lsGetJSON(LS_QUEUE, []);
+  const cl = document.getElementById('count-local');
+  const cq = document.getElementById('count-queue');
+  if (cl) cl.textContent = records.length;
+  if (cq) cq.textContent = queue.length;
+  aggiornaStatus();
+}
+
+// ---- Toast ----
+function toast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show toast-' + type;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+// ---- Pulisci form ----
+function pulisci() {
+  document.getElementById('docen-num').value = '';
+  document.getElementById('docen-data').value = oggi();
+  document.getElementById('fornitore').value = '';
+  document.getElementById('note-gen').value = '';
+  fotoTemp = [];
+  renderFotoGrid();
+}
+</script>
+</body>
+</html>
