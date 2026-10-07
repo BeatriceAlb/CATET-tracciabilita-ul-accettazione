@@ -188,6 +188,10 @@ textarea{resize:vertical;min-height:60px}
     <h3>&#128270; Cerca</h3>
     <input type="text" id="cerca" placeholder="Cerca per DOC_EN, fornitore, data..."
       oninput="renderStorico()">
+    <button class="btn btn-outline btn-sm" onclick="syncDaGoogle()" id="btn-sync-storico" style="margin-top:4px">
+      &#128259; Aggiorna da Google
+    </button>
+    <p id="sync-status" style="font-size:11px;color:var(--grigio);margin-top:4px;display:none"></p>
   </div>
   <div id="storico-list"></div>
   <p id="storico-vuoto" style="text-align:center;color:var(--grigio);padding:20px;display:none">
@@ -228,6 +232,10 @@ textarea{resize:vertical;min-height:60px}
     <button class="btn btn-outline btn-sm" onclick="sincronizza()" style="margin-top:4px">
       &#128259; Sincronizza coda
     </button>
+    <button class="btn btn-blu btn-sm" onclick="syncDaGoogle(false)" style="margin-top:4px">
+      &#9899; Aggiorna storico da Google
+    </button>
+    <p class="note">Se cancelli righe dal foglio Google, premi qui per allineare lo storico locale</p>
     <button class="btn btn-rosso btn-sm" onclick="confirmClear()" style="margin-top:4px">
       &#128465; Cancella dati locali
     </button>
@@ -327,7 +335,13 @@ function showPage(id) {
   document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
   document.getElementById('pg-'+id).classList.add('active');
   event.currentTarget.classList.add('active');
-  if (id === 'storico') renderStorico();
+  if (id === 'storico') {
+    renderStorico();
+    // Auto-sync da Google se è passato più di 30 secondi dall'ultimo sync
+    if (lsGet(LS_URL, '') && (Date.now() - lastSyncTime > 30000)) {
+      syncDaGoogle(true); // silent
+    }
+  }
   if (id === 'impostazioni') { aggiornaCounts(); renderFornitori(); }
 }
 
@@ -572,6 +586,100 @@ function autoSync() {
       sincronizza();
     }
   }, 60000); // ogni 60 secondi
+}
+
+// ---- Sincronizzazione da Google ----
+let lastSyncTime = 0;
+
+async function syncDaGoogle(silent) {
+  const url = lsGet(LS_URL, '');
+  if (!url) {
+    if (!silent) toast('Configura prima l\'URL nelle Impostazioni', 'err');
+    return;
+  }
+
+  const statusEl = document.getElementById('sync-status');
+  const btnSync = document.getElementById('btn-sync-storico');
+
+  if (!silent && statusEl) {
+    statusEl.style.display = 'block';
+    statusEl.textContent = 'Sincronizzazione in corso...';
+    statusEl.style.color = 'var(--grigio)';
+  }
+  if (btnSync) btnSync.disabled = true;
+
+  try {
+    const resp = await fetch(url + '?action=getData');
+    const result = await resp.json();
+
+    if (result.status !== 'ok') {
+      throw new Error(result.message || 'Errore dal server');
+    }
+
+    const googleRecords = result.records || [];
+    let localRecords = lsGetJSON(LS_KEY, []);
+    const queue = lsGetJSON(LS_QUEUE, []);
+
+    // Crea un set di "chiavi" dei record presenti su Google
+    // Chiave = docEN + dataDocEN + fornitore + ora (combinazione univoca)
+    const googleKeys = new Set();
+    googleRecords.forEach(gr => {
+      const key = (gr.docEN || '').trim().toLowerCase() + '|' +
+                  (gr.dataDocEN || '').trim() + '|' +
+                  (gr.fornitore || '').trim().toLowerCase() + '|' +
+                  (gr.ora || '').trim();
+      googleKeys.add(key);
+    });
+
+    // Filtra i record locali: mantieni solo quelli che
+    // 1. Esistono ancora su Google, OPPURE
+    // 2. Sono ancora in coda di invio (non ancora inviati a Google)
+    const queueIds = new Set(queue.map(q => q.id));
+    const beforeCount = localRecords.length;
+
+    localRecords = localRecords.filter(lr => {
+      // Se è ancora in coda, mantienilo (non è ancora su Google)
+      if (queueIds.has(lr.id)) return true;
+
+      // Altrimenti verifica se esiste su Google
+      const key = (lr.docEN || '').trim().toLowerCase() + '|' +
+                  (lr.dataDocEN || '').trim() + '|' +
+                  (lr.fornitore || '').trim().toLowerCase() + '|' +
+                  (lr.ora || '').trim();
+      return googleKeys.has(key);
+    });
+
+    const removed = beforeCount - localRecords.length;
+    lsSetJSON(LS_KEY, localRecords);
+    aggiornaCounts();
+    renderStorico();
+    lastSyncTime = Date.now();
+
+    if (statusEl) {
+      statusEl.style.display = 'block';
+      if (removed > 0) {
+        statusEl.textContent = removed + ' registrazion' + (removed === 1 ? 'e rimossa' : 'i rimosse') +
+          ' dallo storico. Ultimo aggiornamento: ' + oraCorrente();
+        statusEl.style.color = 'var(--blu)';
+        if (!silent) toast(removed + ' registrazion' + (removed === 1 ? 'e rimossa' : 'i rimosse'), 'ok');
+      } else {
+        statusEl.textContent = 'Storico aggiornato — tutto allineato. ' + oraCorrente();
+        statusEl.style.color = 'var(--verde)';
+        if (!silent) toast('Storico allineato con Google', 'ok');
+      }
+    }
+
+  } catch(e) {
+    console.warn('Sync da Google fallita:', e);
+    if (statusEl) {
+      statusEl.style.display = 'block';
+      statusEl.textContent = 'Errore sincronizzazione: ' + e.message;
+      statusEl.style.color = 'var(--rosso)';
+    }
+    if (!silent) toast('Errore sincronizzazione', 'err');
+  } finally {
+    if (btnSync) btnSync.disabled = false;
+  }
 }
 
 // ---- Storico ----
